@@ -1,0 +1,77 @@
+rules_version = '2';
+
+// Reglas de seguridad para la Quiniela Mundialista.
+// Modelo: users, pools y pools/{poolId}/predictions.
+//
+// Nota sobre el cierre 30 min antes: se valida en la app (lib/lock.ts) y en la
+// UI. Para reforzarlo en el servidor se requeriria tener los partidos en
+// Firestore con su kickoff; aqui priorizamos un setup simple para jugar entre
+// amigos, validando propiedad y pertenencia al grupo.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // Perfil de usuario: cada quien gestiona el suyo; lectura para usuarios autenticados
+    // (necesaria para mostrar nombres/avatares en el ranking).
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create, update: if isSelf(uid)
+        && request.resource.data.uid == uid;
+      allow delete: if false;
+    }
+
+    // Quinielas
+    match /pools/{poolId} {
+      allow read: if signedIn();
+
+      // Crear: el creador debe ser el owner y miembro inicial.
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.auth.uid in request.resource.data.memberUids;
+
+      // Actualizar: solo para unirse (agregarse a memberUids) o si eres el owner.
+      allow update: if signedIn() && (
+        resource.data.ownerUid == request.auth.uid
+        || (
+          request.resource.data.memberUids.hasAll(resource.data.memberUids)
+          && request.resource.data.memberUids.removeAll(resource.data.memberUids) == [request.auth.uid]
+          && request.resource.data.ownerUid == resource.data.ownerUid
+        )
+      );
+
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+
+      // Predicciones dentro de la quiniela
+      match /predictions/{predId} {
+        // Solo miembros del grupo pueden leer las predicciones (ranking).
+        allow read: if signedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/pools/$(poolId)).data.memberUids;
+
+        // Cada quien crea/edita unicamente su propia prediccion.
+        allow create, update: if signedIn()
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.poolId == poolId
+          && request.auth.uid in get(/databases/$(database)/documents/pools/$(poolId)).data.memberUids
+          && request.resource.data.homeGoals is int
+          && request.resource.data.awayGoals is int
+          && request.resource.data.homeGoals >= 0
+          && request.resource.data.awayGoals >= 0;
+
+        allow delete: if false;
+      }
+    }
+
+    // Partidos (opcional, si se persisten via cron con Admin SDK).
+    match /matches/{matchId} {
+      allow read: if signedIn();
+      allow write: if false; // solo el Admin SDK (cron) escribe
+    }
+  }
+}
