@@ -8,7 +8,9 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { useAuth } from "@/components/AuthProvider";
 import { useMatches } from "@/components/useMatches";
 import { MatchCard } from "@/components/MatchCard";
-import { PhaseTabs } from "@/components/PhaseTabs";
+import { PhaseTabs, type ViewTab } from "@/components/PhaseTabs";
+import { CalendarView } from "@/components/CalendarView";
+import { GroupsView } from "@/components/GroupsView";
 import { getPool, listenMyPredictions, savePrediction } from "@/lib/firebase/db";
 import { computePoints } from "@/lib/scoring";
 import { isLocked } from "@/lib/lock";
@@ -20,6 +22,7 @@ import {
   type Prediction,
 } from "@/lib/types";
 
+
 function PoolInner() {
   const { poolId } = useParams<{ poolId: string }>();
   const { profile } = useAuth();
@@ -27,7 +30,7 @@ function PoolInner() {
 
   const [pool, setPool] = useState<Pool | null>(null);
   const [preds, setPreds] = useState<Prediction[]>([]);
-  const [phase, setPhase] = useState<Phase>("groups");
+  const [view, setView] = useState<ViewTab>("groups");
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -52,13 +55,15 @@ function PoolInner() {
     return c;
   }, [matches]);
 
+  const phase = (view !== "calendar" && view !== "groups" ? view : null) as Phase | null;
+
   // Selecciona automaticamente la primera fase con partidos.
   useEffect(() => {
-    if (counts[phase] === 0) {
+    if (view !== "calendar" && view !== "groups" && counts[view as Phase] === 0) {
       const first = PHASE_ORDER.find((p) => counts[p] > 0);
-      if (first) setPhase(first);
+      if (first) setView(first);
     }
-  }, [counts, phase]);
+  }, [counts, view]);
 
   const myPoints = useMemo(() => {
     let total = 0;
@@ -76,7 +81,7 @@ function PoolInner() {
     return total;
   }, [preds, matches]);
 
-  const phaseMatches = matches.filter((m) => m.phase === phase);
+  const phaseMatches = phase ? matches.filter((m) => m.phase === phase) : [];
   const openCount = matches.filter((m) => !isLocked(m)).length;
 
   async function handleSave(matchId: string, home: number, away: number) {
@@ -123,26 +128,37 @@ function PoolInner() {
         </div>
 
         <div className="mt-6">
-          <PhaseTabs active={phase} counts={counts} onChange={setPhase} />
+          <PhaseTabs active={view} counts={counts} onChange={setView} />
         </div>
 
-        <h2 className="mb-3 mt-5 display text-xl text-slate-200">{PHASE_LABELS[phase]}</h2>
-
         {loading ? (
-          <p className="text-slate-400">Cargando partidos…</p>
-        ) : phaseMatches.length === 0 ? (
-          <p className="card p-6 text-center text-slate-400">No hay partidos en esta fase todavía.</p>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            {phaseMatches.map((match) => (
-              <MatchCard
-                key={match.id}
-                match={match}
-                prediction={predByMatch.get(match.id) ?? null}
-                onSave={(h, a) => handleSave(match.id, h, a)}
-              />
-            ))}
+          <p className="mt-5 text-slate-400">Cargando partidos…</p>
+        ) : view === "calendar" ? (
+          <div className="mt-5">
+            <CalendarView matches={matches} predByMatch={predByMatch} />
           </div>
+        ) : view === "groups" ? (
+          <div className="mt-5">
+            <GroupsView matches={matches} />
+          </div>
+        ) : (
+          <>
+            <h2 className="mb-3 mt-5 display text-xl text-slate-200">{phase ? PHASE_LABELS[phase] : ""}</h2>
+            {phaseMatches.length === 0 ? (
+              <p className="card p-6 text-center text-slate-400">No hay partidos en esta fase todavía.</p>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {phaseMatches.map((match) => (
+                  <MatchCard
+                    key={match.id}
+                    match={match}
+                    prediction={predByMatch.get(match.id) ?? null}
+                    onSave={(h, a) => handleSave(match.id, h, a)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </main>
     </>

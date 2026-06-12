@@ -2,7 +2,9 @@
 
 import {
   addDoc,
+  arrayRemove,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -92,6 +94,23 @@ export async function getPool(poolId: string): Promise<Pool | null> {
   const db = getDb();
   const snap = await getDoc(doc(db, "pools", poolId));
   return snap.exists() ? { id: snap.id, ...(snap.data() as Omit<Pool, "id">) } : null;
+}
+
+export async function leavePool(poolId: string, uid: string): Promise<void> {
+  const db = getDb();
+  await updateDoc(doc(db, "pools", poolId), { memberUids: arrayRemove(uid) });
+}
+
+export async function deletePool(poolId: string, uid: string): Promise<void> {
+  const db = getDb();
+  const poolRef = doc(db, "pools", poolId);
+  const snap = await getDoc(poolRef);
+  if (!snap.exists()) return;
+  const pool = snap.data() as Omit<Pool, "id">;
+  if (pool.ownerUid !== uid) throw new Error("Solo el organizador puede eliminar la quiniela.");
+  const predsSnap = await getDocs(collection(db, "pools", poolId, "predictions"));
+  await Promise.all(predsSnap.docs.map((d) => deleteDoc(d.ref)));
+  await deleteDoc(poolRef);
 }
 
 // --------------------------------------------------------------------------

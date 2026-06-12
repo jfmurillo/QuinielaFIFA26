@@ -12,13 +12,14 @@ export function Flag({ code, name, size = 28 }: { code: string; name: string; si
   }
   const w = Math.round(size);
   const h = Math.round(size * 0.7);
+  const cdnH = size >= 56 ? 80 : 40;
   return (
     <Image
-      src={`https://flagcdn.com/h40/${clean}.png`}
+      src={`https://flagcdn.com/h${cdnH}/${clean}.png`}
       alt={name}
       width={w}
       height={h}
-      className="rounded-sm object-cover shadow ring-1 ring-white/15"
+      className="rounded object-cover shadow-md ring-1 ring-white/20"
       unoptimized
     />
   );
