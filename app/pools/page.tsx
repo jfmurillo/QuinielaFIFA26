@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { RequireAuth } from "@/components/RequireAuth";
 import { useAuth } from "@/components/AuthProvider";
-import { createPool, joinPoolByCode, listenUserPools } from "@/lib/firebase/db";
+import { createPool, deletePool, joinPoolByCode, leavePool, listenUserPools } from "@/lib/firebase/db";
 import type { Pool } from "@/lib/types";
 
 function PoolsInner() {
@@ -40,6 +40,36 @@ function PoolsInner() {
       const pool = await createPool(newName, profile);
       setNewName("");
       setNotice(`Quiniela creada. Código de invitación: ${pool.code}`);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleLeave(poolId: string) {
+    if (!profile) return;
+    if (!confirm("¿Seguro que quieres salir de esta quiniela?")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await leavePool(poolId, profile.uid);
+      setNotice("Saliste de la quiniela.");
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDelete(poolId: string) {
+    if (!profile) return;
+    if (!confirm("¿Eliminar esta quiniela? Se borrarán todas las predicciones. Esta acción no se puede deshacer.")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await deletePool(poolId, profile.uid);
+      setNotice("Quiniela eliminada.");
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -124,18 +154,42 @@ function PoolsInner() {
           </p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {pools.map((pool) => (
-              <Link key={pool.id} href={`/pools/${pool.id}`} className="card group p-5 transition hover:border-gold-400/40">
-                <div className="flex items-center justify-between">
-                  <h3 className="display text-lg text-slate-50">{pool.name}</h3>
-                  <span className="text-slate-500 transition group-hover:translate-x-1">→</span>
+            {pools.map((pool) => {
+              const isOwner = pool.ownerUid === profile?.uid;
+              return (
+                <div key={pool.id} className="card p-5">
+                  <Link href={`/pools/${pool.id}`} className="group block">
+                    <div className="flex items-center justify-between">
+                      <h3 className="display text-lg text-slate-50">{pool.name}</h3>
+                      <span className="text-slate-500 transition group-hover:translate-x-1">→</span>
+                    </div>
+                    <div className="mt-3 flex items-center gap-3 text-sm text-slate-400">
+                      <span className="pill bg-white/5">👥 {pool.memberUids.length}</span>
+                      <span className="pill bg-gold-400/10 text-gold-300">Código {pool.code}</span>
+                    </div>
+                  </Link>
+                  <div className="mt-3 flex gap-2 border-t border-white/5 pt-3">
+                    {isOwner ? (
+                      <button
+                        onClick={() => handleDelete(pool.id)}
+                        disabled={busy}
+                        className="text-xs text-flare-400 hover:underline disabled:opacity-50"
+                      >
+                        Eliminar quiniela
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleLeave(pool.id)}
+                        disabled={busy}
+                        className="text-xs text-slate-500 hover:text-slate-300 hover:underline disabled:opacity-50"
+                      >
+                        Salir de la quiniela
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="mt-3 flex items-center gap-3 text-sm text-slate-400">
-                  <span className="pill bg-white/5">👥 {pool.memberUids.length}</span>
-                  <span className="pill bg-gold-400/10 text-gold-300">Código {pool.code}</span>
-                </div>
-              </Link>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>

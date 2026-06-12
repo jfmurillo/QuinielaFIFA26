@@ -118,11 +118,11 @@ export function MatchCard({
         )}
       </div>
 
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
         {/* Local */}
         <div className="flex flex-col items-center gap-2 text-center">
-          <Flag code={match.home.code} name={match.home.name} size={40} />
-          <span className="text-sm font-semibold">{match.home.name}</span>
+          <Flag code={match.home.code} name={match.home.name} size={64} />
+          <span className="text-sm font-semibold leading-tight">{match.home.name}</span>
         </div>
 
         {/* Marcador / prediccion */}
@@ -147,8 +147,8 @@ export function MatchCard({
 
         {/* Visitante */}
         <div className="flex flex-col items-center gap-2 text-center">
-          <Flag code={match.away.code} name={match.away.name} size={40} />
-          <span className="text-sm font-semibold">{match.away.name}</span>
+          <Flag code={match.away.code} name={match.away.name} size={64} />
+          <span className="text-sm font-semibold leading-tight">{match.away.name}</span>
         </div>
       </div>
 

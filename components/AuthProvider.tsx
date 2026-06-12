@@ -11,6 +11,7 @@ import {
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
@@ -28,6 +29,7 @@ interface AuthContextValue {
   register: (email: string, password: string, nickname: string, avatar: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -89,8 +91,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signOut(auth);
   }
 
+  async function resetPassword(email: string) {
+    const auth = getFirebaseAuth();
+    await sendPasswordResetEmail(auth, email);
+  }
+
   const value = useMemo<AuthContextValue>(
-    () => ({ user, profile, loading, configured: isFirebaseConfigured, register, login, logout }),
+    () => ({ user, profile, loading, configured: isFirebaseConfigured, register, login, logout, resetPassword }),
     [user, profile, loading]
   );
 
